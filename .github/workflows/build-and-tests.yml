@@ -588,6 +588,7 @@ jobs:
         shell: bash
         run: |
           set -e
+          git fetch origin 2ae1134b63a2e9834016c4f9f55d63d420043654
           for file in cli/cli.ts cli/logging.ts cli/run/build.ts; do
             git show 2ae1134b63a2e9834016c4f9f55d63d420043654:$file > "$file"
           done
