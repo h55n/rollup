@@ -5,6 +5,7 @@ env:
   MACOSX_DEPLOYMENT_TARGET: '10.13'
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
@@ -583,6 +584,27 @@ jobs:
           npm init -y
           npm install $TARBALL_DIR/*
           node -e "console.log(require('rollup'))"
+      - name: Verify stderr regressions fail before the fix
+        shell: bash
+        run: |
+          set -e
+          for file in cli/cli.ts cli/logging.ts cli/run/build.ts; do
+            git show 2ae1134b63a2e9834016c4f9f55d63d420043654:$file > "$file"
+          done
+          npm run build:cjs
+          cp artifacts/*/*.node dist/
+          set +e
+          npx mocha test/test.js --grep 'force-exit-(stdout-stderr|stderr-file)' > regression-before.log 2>&1
+          result=$?
+          set -e
+          cat regression-before.log
+          test "$result" -eq 2
+          grep -q '2 failing' regression-before.log
+          git restore cli/cli.ts cli/logging.ts cli/run/build.ts
+          npm run build:cjs
+          cp artifacts/*/*.node dist/
+          npm run build:bootstrap
+          npx mocha test/test.js --grep 'force-exit'
       - name: Test Rollup
         shell: bash
         run: cp artifacts/*/*.node dist/ && npm run test:only
@@ -649,6 +671,7 @@ jobs:
             rust/target/
           key: coverage-and-additional-tests-cargo-ubuntu-latest-${{ hashFiles('rust/Cargo.lock') }}
       - name: Upload coverage
+        if: github.repository != 'h55n/rollup'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           fail_ci_if_error: true
